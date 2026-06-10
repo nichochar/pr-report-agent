@@ -1,0 +1,52 @@
+{
+  "companyContext": "CoreWeave owns Weights & Biases. This report monitors Weave-related product and platform work across configured W&B repositories for engineering and product leads.",
+  "defaultTimezone": "America/Los_Angeles",
+  "defaultInterval": "previous-day",
+  "outputDir": "runs",
+  "models": {
+    "orchestrator": "gpt-5.5",
+    "prAnalyzer": "gpt-5.4-mini"
+  },
+  "github": {
+    "maxPullRequests": 1000,
+    "excludeBots": true,
+    "ignoredAuthorLogins": [
+      "dependabot[bot]",
+      "github-actions[bot]",
+      "renovate[bot]"
+    ]
+  },
+  "diff": {
+    "chunkChars": 12000,
+    "maxInlineDiffChars": 180000,
+    "maxFileReadChars": 40000
+  },
+  "agents": {
+    "prAnalyzerConcurrency": 3,
+    "prAnalyzerMaxTurns": 24,
+    "orchestratorMaxTurns": 12
+  },
+  "repos": [
+    {
+      "slug": "wandb/core",
+      "localPath": "~/crwv/core",
+      "includeOwners": ["@wandb/weave-team"],
+      "codeownersPaths": [".github/CODEOWNERS"],
+      "productContext": "W&B core monorepo. Scope to changed files whose last matching CODEOWNERS rule includes @wandb/weave-team to avoid broad monorepo noise."
+    },
+    {
+      "slug": "wandb/weave",
+      "localPath": "~/crwv/weave",
+      "includeOwners": ["@wandb/weave-team"],
+      "codeownersPaths": [".github/CODEOWNERS"],
+      "productContext": "Weave repository. Its CODEOWNERS currently assigns the repo broadly to @wandb/weave-team, so most human-authored merged PRs are in scope."
+    },
+    {
+      "slug": "wandb/docs",
+      "localPath": "~/crwv/docs",
+      "includeOwners": ["@wandb/weave-team"],
+      "codeownersPaths": [".github/CODEOWNERS"],
+      "productContext": "W&B docs repository. It is configured for monitoring, but PRs only qualify when CODEOWNERS assigns changed files to @wandb/weave-team."
+    }
+  ]
+}

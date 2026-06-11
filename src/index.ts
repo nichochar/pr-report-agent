@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { resolve } from "node:path";
 import { loadConfig } from "./config.js";
+import { flushObservability, initializeObservability } from "./observability.js";
 import { runPrReportAgent } from "./run.js";
 import { resolveTriggerInterval } from "./trigger.js";
 import { IntervalPresetSchema, type Trigger } from "./types.js";
@@ -16,9 +17,15 @@ async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const config = await loadConfig(options.configPath);
   const interval = resolveTriggerInterval(options.trigger, config);
-  const runDir = await runPrReportAgent(config, interval, {
-    collectOnly: options.collectOnly,
-  });
+  await initializeObservability();
+  let runDir: string;
+  try {
+    runDir = await runPrReportAgent(config, interval, {
+      collectOnly: options.collectOnly,
+    });
+  } finally {
+    await flushObservability();
+  }
   console.log(`Wrote PR report artifacts to ${runDir}`);
 }
 

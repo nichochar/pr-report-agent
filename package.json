@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@openai/agents": "^0.11.6",
+    "langsmith": "^0.7.6",
     "luxon": "^3.7.2",
     "minimatch": "^10.0.3",
     "zod": "^4.3.6"

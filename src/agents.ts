@@ -1,10 +1,13 @@
-import { Agent, Runner, tool } from "@openai/agents";
+import { Agent, Runner, createCustomSpan, tool, withTrace, type Trace } from "@openai/agents";
 import { z } from "zod";
+import { createAnalyzerChaosGuardrails } from "./analyzer-chaos.js";
 import { readFileAtRevision } from "./local-repo.js";
+import { createToolChaosController } from "./tool-chaos.js";
 import {
   PrCardSchema,
   ReportSchema,
   type AppConfig,
+  type PrAnalysisFailure,
   type PrCard,
   type PullRequestRecord,
   type Report,
@@ -20,6 +23,7 @@ export async function analyzePullRequest(
   pr: PullRequestRecord,
   options: AnalyzeOptions,
 ): Promise<PrCard> {
+  const workflowName = `Analyze ${pr.repo}#${pr.number}`;
   const agent = new Agent({
     name: `PR analyzer ${pr.repo}#${pr.number}`,
     instructions: analyzerInstructions,
@@ -27,17 +31,30 @@ export async function analyzePullRequest(
     outputType: PrCardSchema,
     tools: createAnalyzerTools(pr, options),
   });
-  const runner = new Runner({ model: options.config.models.prAnalyzer });
-  const result = await runner.run(agent, buildAnalyzerPrompt(pr, options.config), {
-    maxTurns: options.config.agents.prAnalyzerMaxTurns,
+  const runner = new Runner({
+    model: options.config.models.prAnalyzer,
+    workflowName,
+    outputGuardrails: createAnalyzerChaosGuardrails(pr),
   });
-  return PrCardSchema.parse(result.finalOutput);
+  return withTrace(workflowName, async (trace) => {
+    try {
+      const result = await runner.run(agent, buildAnalyzerPrompt(pr, options.config), {
+        maxTurns: options.config.agents.prAnalyzerMaxTurns,
+      });
+      return PrCardSchema.parse(result.finalOutput);
+    } catch (error) {
+      recordAnalyzerFailureSpan(pr, error, trace);
+      await trace.end();
+      throw error;
+    }
+  });
 }
 
 export async function aggregateReport(
   cards: PrCard[],
   interval: ResolvedInterval,
   config: AppConfig,
+  analyzerFailures: PrAnalysisFailure[] = [],
 ): Promise<Report> {
   const agent = new Agent({
     name: "Weave PR report orchestrator",
@@ -46,13 +63,18 @@ export async function aggregateReport(
     outputType: ReportSchema,
   });
   const runner = new Runner({ model: config.models.orchestrator });
-  const result = await runner.run(agent, buildOrchestratorPrompt(cards, interval, config), {
-    maxTurns: config.agents.orchestratorMaxTurns,
-  });
-  return ReportSchema.parse(result.finalOutput);
+  const result = await runner.run(
+    agent,
+    buildOrchestratorPrompt(cards, interval, config, analyzerFailures),
+    {
+      maxTurns: config.agents.orchestratorMaxTurns,
+    },
+  );
+  return ensureFailedPrsNoted(ReportSchema.parse(result.finalOutput), analyzerFailures);
 }
 
 function createAnalyzerTools(pr: PullRequestRecord, options: AnalyzeOptions) {
+  const toolChaos = createToolChaosController(pr);
   return [
     tool({
       name: "read_diff_chunk",
@@ -63,6 +85,7 @@ function createAnalyzerTools(pr: PullRequestRecord, options: AnalyzeOptions) {
         chars: z.number().int().min(1000).max(options.config.diff.chunkChars).optional(),
       }),
       async execute({ offset, chars }) {
+        toolChaos.maybeFail("read_diff_chunk");
         const size = chars ?? options.config.diff.chunkChars;
         const text = pr.diff.slice(offset, offset + size);
         const nextOffset = offset + text.length;
@@ -83,6 +106,7 @@ function createAnalyzerTools(pr: PullRequestRecord, options: AnalyzeOptions) {
         contextChars: z.number().int().min(80).max(2000).default(500),
       }),
       async execute({ query, contextChars }) {
+        toolChaos.maybeFail("search_diff");
         const lowerDiff = pr.diff.toLowerCase();
         const lowerQuery = query.toLowerCase();
         const matches: Array<{ offset: number; snippet: string }> = [];
@@ -105,6 +129,7 @@ function createAnalyzerTools(pr: PullRequestRecord, options: AnalyzeOptions) {
         maxChars: z.number().int().min(1000).max(options.config.diff.maxFileReadChars).optional(),
       }),
       async execute({ path, maxChars }) {
+        toolChaos.maybeFail("read_file_at_pr_revision");
         const revision = pr.headRefOid ?? pr.mergeCommitOid;
         if (!revision) {
           return JSON.stringify({ error: "No head or merge revision is available for this PR." });
@@ -127,11 +152,34 @@ function createAnalyzerTools(pr: PullRequestRecord, options: AnalyzeOptions) {
       description: "Return normalized PR metadata, changed files, ownership matches, comments, and reviews.",
       parameters: z.object({}),
       async execute() {
+        toolChaos.maybeFail("list_pr_metadata");
         const { diff, ...withoutDiff } = pr;
         return JSON.stringify({ ...withoutDiff, diffChars: diff.length });
       },
     }),
   ];
+}
+
+function recordAnalyzerFailureSpan(pr: PullRequestRecord, error: unknown, trace: Trace): void {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const span = createCustomSpan(
+    {
+      data: {
+        name: `chaos_pr_analyzer_failure ${pr.repo}#${pr.number}`,
+      },
+    },
+    trace,
+  );
+  span.start();
+  span.setError({
+    message: errorMessage,
+    data: {
+      repo: pr.repo,
+      pr_number: pr.number,
+      error_name: error instanceof Error ? error.name : "Error",
+    },
+  });
+  span.end();
 }
 
 function buildAnalyzerPrompt(pr: PullRequestRecord, config: AppConfig): string {
@@ -181,6 +229,7 @@ function buildOrchestratorPrompt(
   cards: PrCard[],
   interval: ResolvedInterval,
   config: AppConfig,
+  analyzerFailures: PrAnalysisFailure[],
 ): string {
   return JSON.stringify(
     {
@@ -194,14 +243,37 @@ function buildOrchestratorPrompt(
         "Call out notable risks, launches, regressions prevented, product implications, and follow-ups.",
         "Preserve links to important PRs.",
         "If the interval is quiet, say so clearly and explain what was included.",
+        "If failedAnalyzerPrs is non-empty, do not invent analysis for those PRs. Mention that they failed separately from analyzed PRs.",
       ],
       companyContext: config.companyContext,
       interval,
       cards,
+      failedAnalyzerPrs: analyzerFailures.map((failure) => ({
+        repo: failure.repo,
+        number: failure.number,
+        title: failure.title,
+        url: failure.url,
+        error: failure.errorMessage,
+      })),
     },
     null,
     2,
   );
+}
+
+function ensureFailedPrsNoted(report: Report, analyzerFailures: PrAnalysisFailure[]): Report {
+  if (analyzerFailures.length === 0 || report.markdown.includes("Failed PRs not included in review")) {
+    return report;
+  }
+
+  const failureLines = analyzerFailures.map(
+    (failure) =>
+      `- [${failure.repo}#${failure.number}](${failure.url}) - ${failure.title}: ${failure.errorMessage}`,
+  );
+  return {
+    ...report,
+    markdown: `${report.markdown.trimEnd()}\n\n## Failed PRs not included in review\n\n${failureLines.join("\n")}\n`,
+  };
 }
 
 const analyzerInstructions = `

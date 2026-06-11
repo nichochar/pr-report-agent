@@ -162,6 +162,17 @@ export const PrCardSchema = z.object({
 });
 export type PrCard = z.infer<typeof PrCardSchema>;
 
+export interface PrAnalysisFailure {
+  repo: string;
+  number: number;
+  title: string;
+  url: string;
+  mergedAt: string;
+  errorName: string;
+  errorMessage: string;
+  failedAt: string;
+}
+
 export const ReportSchema = z.object({
   title: z.string(),
   interval: z.object({
@@ -197,5 +208,6 @@ export interface RunArtifacts {
   interval: ResolvedInterval;
   scopedPrs: PullRequestRecord[];
   cards?: PrCard[];
+  analyzerFailures?: PrAnalysisFailure[];
   report?: Report;
 }

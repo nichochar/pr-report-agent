@@ -27,6 +27,10 @@ export async function writeRunArtifacts(
     await writeJson(join(runDir, "cards.json"), artifacts.cards);
   }
 
+  if (artifacts.analyzerFailures) {
+    await writeJson(join(runDir, "analyzer-failures.json"), artifacts.analyzerFailures);
+  }
+
   if (artifacts.report) {
     await writeJson(join(runDir, "report.json"), artifacts.report);
     await writeFile(join(runDir, "report.md"), artifacts.report.markdown, "utf8");

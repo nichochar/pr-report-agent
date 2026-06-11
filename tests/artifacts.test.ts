@@ -36,6 +36,18 @@ describe("artifact writer", () => {
       },
       scopedPrs: [],
       cards: [],
+      analyzerFailures: [
+        {
+          repo: "wandb/weave",
+          number: 123,
+          title: "Trace failures",
+          url: "https://github.com/wandb/weave/pull/123",
+          mergedAt: "2026-06-09T17:15:00Z",
+          errorName: "Error",
+          errorMessage: "Output guardrail triggered",
+          failedAt: "2026-06-09T17:16:00Z",
+        },
+      ],
       report,
     });
 
@@ -49,6 +61,18 @@ describe("artifact writer", () => {
       scopedPrs: [],
     });
     expect(JSON.parse(await readFile(join(runDir, "cards.json"), "utf8"))).toEqual([]);
+    expect(JSON.parse(await readFile(join(runDir, "analyzer-failures.json"), "utf8"))).toEqual([
+      {
+        repo: "wandb/weave",
+        number: 123,
+        title: "Trace failures",
+        url: "https://github.com/wandb/weave/pull/123",
+        mergedAt: "2026-06-09T17:15:00Z",
+        errorName: "Error",
+        errorMessage: "Output guardrail triggered",
+        failedAt: "2026-06-09T17:16:00Z",
+      },
+    ]);
     expect(JSON.parse(await readFile(join(runDir, "report.json"), "utf8")).title).toBe("Report");
     expect(await readFile(join(runDir, "report.md"), "utf8")).toBe("# Report\n");
   });

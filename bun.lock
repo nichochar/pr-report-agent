@@ -6,6 +6,7 @@
       "name": "@raindrop/example-pr-report-agent",
       "dependencies": {
         "@openai/agents": "^0.11.6",
+        "@raindrop-ai/openai-agents": "^0.0.3",
         "luxon": "^3.7.2",
         "minimatch": "^10.0.3",
         "zod": "^4.3.6",
@@ -30,6 +31,8 @@
     "@openai/agents-openai": ["@openai/agents-openai@0.11.6", "", { "dependencies": { "@openai/agents-core": "0.11.6", "debug": "^4.4.0", "openai": "^6.35.0" }, "peerDependencies": { "zod": "^4.0.0" } }, "sha512-63zXy+EPmg3WErLO12jLEjCTqGBZ/f0ApsW/t5wpccqUYCtImIT6IYZDgGM+zSEafHNGJmNOwGtEqHjz/Pyl+A=="],
 
     "@openai/agents-realtime": ["@openai/agents-realtime@0.11.6", "", { "dependencies": { "@openai/agents-core": "0.11.6", "@types/ws": "^8.18.1", "debug": "^4.4.0", "ws": "^8.18.1" }, "peerDependencies": { "zod": "^4.0.0" } }, "sha512-jw4lLO6B2xyCBtgLtAXZmqhjEAqSLO1EtJzfwfrZuzGpPgs4nJBQ+O7ybtdPPKt8iWdIOlrYRDqxhBHv7Qqo7w=="],
+
+    "@raindrop-ai/openai-agents": ["@raindrop-ai/openai-agents@0.0.3", "", { "peerDependencies": { "@openai/agents": ">=0.1.0" } }, "sha512-2IY2b79x9IT5LytNkk7O3H8d8pyshLZX5X3bgypq0aN6Forp7wrt+sdP03I+XtiQsBeK6dJaDRqIdRiIyNE3EQ=="],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
 

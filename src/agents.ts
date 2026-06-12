@@ -13,10 +13,17 @@ import {
   type Report,
   type ResolvedInterval,
 } from "./types.js";
+import {
+  buildAnalyzerTraceMetadata,
+  buildOrchestratorTraceMetadata,
+  includeSensitiveTraceData,
+  type ReportTraceContext,
+} from "./trace-context.js";
 
 interface AnalyzeOptions {
   repoLocalPath: string;
   config: AppConfig;
+  traceContext?: ReportTraceContext;
 }
 
 export async function analyzePullRequest(
@@ -24,6 +31,9 @@ export async function analyzePullRequest(
   options: AnalyzeOptions,
 ): Promise<PrCard> {
   const workflowName = `Analyze ${pr.repo}#${pr.number}`;
+  const traceMetadata = options.traceContext
+    ? buildAnalyzerTraceMetadata(pr, options.traceContext)
+    : undefined;
   const agent = new Agent({
     name: `PR analyzer ${pr.repo}#${pr.number}`,
     instructions: analyzerInstructions,
@@ -34,26 +44,37 @@ export async function analyzePullRequest(
   const runner = new Runner({
     model: options.config.models.prAnalyzer,
     workflowName,
+    groupId: options.traceContext?.groupId,
+    traceMetadata,
+    traceIncludeSensitiveData: includeSensitiveTraceData(),
     outputGuardrails: createAnalyzerChaosGuardrails(pr),
   });
-  return withTrace(workflowName, async (trace) => {
-    try {
-      const result = await runner.run(agent, buildAnalyzerPrompt(pr, options.config), {
-        maxTurns: options.config.agents.prAnalyzerMaxTurns,
-      });
-      return PrCardSchema.parse(result.finalOutput);
-    } catch (error) {
-      recordAnalyzerFailureSpan(pr, error, trace);
-      await trace.end();
-      throw error;
-    }
-  });
+  return withTrace(
+    workflowName,
+    async (trace) => {
+      try {
+        const result = await runner.run(agent, buildAnalyzerPrompt(pr, options.config), {
+          maxTurns: options.config.agents.prAnalyzerMaxTurns,
+        });
+        return PrCardSchema.parse(result.finalOutput);
+      } catch (error) {
+        recordAnalyzerFailureSpan(pr, error, trace);
+        await trace.end();
+        throw error;
+      }
+    },
+    {
+      groupId: options.traceContext?.groupId,
+      metadata: traceMetadata,
+    },
+  );
 }
 
 export async function aggregateReport(
   cards: PrCard[],
   interval: ResolvedInterval,
   config: AppConfig,
+  traceContext?: ReportTraceContext,
   analyzerFailures: PrAnalysisFailure[] = [],
 ): Promise<Report> {
   const agent = new Agent({
@@ -62,7 +83,15 @@ export async function aggregateReport(
     model: config.models.orchestrator,
     outputType: ReportSchema,
   });
-  const runner = new Runner({ model: config.models.orchestrator });
+  const runner = new Runner({
+    model: config.models.orchestrator,
+    workflowName: "Aggregate Weave PR report",
+    groupId: traceContext?.groupId,
+    traceMetadata: traceContext
+      ? buildOrchestratorTraceMetadata(cards, traceContext, analyzerFailures)
+      : undefined,
+    traceIncludeSensitiveData: includeSensitiveTraceData(),
+  });
   const result = await runner.run(
     agent,
     buildOrchestratorPrompt(cards, interval, config, analyzerFailures),

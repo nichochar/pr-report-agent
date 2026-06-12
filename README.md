@@ -34,6 +34,12 @@ Run the full manual trigger for the previous day:
 OPENAI_API_KEY=... bun run run -- --preset previous-day
 ```
 
+Run a short smoke test over the first three scoped PRs from the interval:
+
+```bash
+OPENAI_API_KEY=... bun run run -- --preset previous-day --max-prs 3
+```
+
 Run an explicit interval. The end is exclusive.
 
 ```bash
@@ -49,6 +55,7 @@ OPENAI_API_KEY=... bun run run -- --preset previous-week
 ## Completion Rubric
 
 - Manual trigger resolves explicit, previous-day, and previous-week intervals in Pacific time.
+- `--max-prs` limits scoped PRs during collection for cheaper smoke tests.
 - Schedule trigger type exists in code so a cron/automation wrapper can call the same run path later.
 - Config declares CoreWeave/W&B context, repos, local clone paths, models, GitHub filters, diff limits, and output paths.
 - Collector uses `gh` to find merged PRs and filters by `mergedAt` exactly.

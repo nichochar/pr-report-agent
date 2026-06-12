@@ -44,4 +44,22 @@ describe("run orchestration helpers", () => {
       failedAt: "2026-06-10T12:01:00.000Z",
     });
   });
+
+  test("limits scoped PRs for smoke runs while preserving order", () => {
+    const prs = [
+      { repo: "wandb/core", number: 1 },
+      { repo: "wandb/core", number: 2 },
+      { repo: "wandb/weave", number: 3 },
+    ] as PullRequestRecord[];
+
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    try {
+      expect(testExports.limitPullRequests(prs, 2).map((pr) => pr.number)).toEqual([1, 2]);
+      expect(testExports.limitPullRequests(prs, undefined)).toBe(prs);
+      expect(testExports.limitPullRequests(prs, 10)).toBe(prs);
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
 });

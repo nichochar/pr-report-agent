@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-06-10.
+Last updated: 2026-06-11.
 
 ## What This Project Is
 
@@ -35,6 +35,7 @@ It was originally scaffolded inside `/Users/ncharriere/oss/workshop/examples/pr-
 - `src/artifacts.ts`: JSON and Markdown artifact writing.
 - `src/types.ts`: config, PR, card, report schemas.
 - `config/coreweave-weave.config.json`: repo list, owner filters, models, output paths, limits.
+- CLI supports `--max-prs N` to stop collection after N scoped PRs for cheaper full-path smoke tests.
 
 ## Verified Behavior
 

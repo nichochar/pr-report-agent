@@ -47,6 +47,12 @@ bun run run -- --start 2026-06-09 --end 2026-06-10
 
 The interval is interpreted in `America/Los_Angeles`. The end is exclusive.
 
+For faster model-backed smoke tests, stop after a small number of scoped PRs:
+
+```bash
+bun run run -- --preset previous-day --max-prs 3
+```
+
 Output path shape:
 
 ```text
@@ -122,5 +128,5 @@ That is expected when its CODEOWNERS file does not assign changed files to `@wan
 2. Run `bun run typecheck`.
 3. Run `bun test`.
 4. Run a narrow collect-only interval.
-5. Run a narrow full interval if agent changes were made.
+5. Run a capped full interval with `--max-prs 3` if agent changes were made.
 6. Run a full day only after the narrow interval succeeds.

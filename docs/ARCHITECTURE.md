@@ -10,6 +10,7 @@ Trigger
   -> Fetch PR details and changed files
   -> Apply CODEOWNERS owner scope
   -> Fetch full patch for accepted PRs
+  -> Optionally stop after --max-prs scoped PRs for smoke tests
   -> Write scoped PR inputs
   -> Run one analyzer agent per PR
   -> Aggregate cards into report

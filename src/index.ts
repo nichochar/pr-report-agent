@@ -9,6 +9,7 @@ interface CliOptions {
   command: "run";
   configPath: string;
   collectOnly: boolean;
+  maxPrs?: number;
   trigger: Trigger;
 }
 
@@ -18,6 +19,7 @@ async function main(): Promise<void> {
   const interval = resolveTriggerInterval(options.trigger, config);
   const runDir = await runPrReportAgent(config, interval, {
     collectOnly: options.collectOnly,
+    maxPrs: options.maxPrs,
   });
   console.log(`Wrote PR report artifacts to ${runDir}`);
 }
@@ -31,6 +33,7 @@ function parseArgs(args: string[]): CliOptions {
 
   let configPath = resolve("config/coreweave-weave.config.json");
   let collectOnly = false;
+  let maxPrs: number | undefined;
   let preset: string | undefined;
   let start: string | undefined;
   let end: string | undefined;
@@ -43,6 +46,9 @@ function parseArgs(args: string[]): CliOptions {
         break;
       case "--collect-only":
         collectOnly = true;
+        break;
+      case "--max-prs":
+        maxPrs = parsePositiveInteger(requiredValue(rest, ++index, arg), arg);
         break;
       case "--preset":
         preset = requiredValue(rest, ++index, arg);
@@ -59,7 +65,7 @@ function parseArgs(args: string[]): CliOptions {
   }
 
   const trigger = buildTrigger({ preset, start, end });
-  return { command, configPath, collectOnly, trigger };
+  return { command, configPath, collectOnly, maxPrs, trigger };
 }
 
 function buildTrigger(input: {
@@ -84,6 +90,14 @@ function requiredValue(args: string[], index: number, flag: string): string {
     throw new Error(`Missing value for ${flag}`);
   }
   return value;
+}
+
+function parsePositiveInteger(value: string, flag: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${flag} must be a positive integer.`);
+  }
+  return parsed;
 }
 
 main().catch((error) => {

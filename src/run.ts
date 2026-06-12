@@ -12,9 +12,12 @@ import { writeRunArtifacts } from "./artifacts.js";
 export async function runPrReportAgent(
   config: AppConfig,
   interval: ResolvedInterval,
-  options: { collectOnly?: boolean } = {},
+  options: { collectOnly?: boolean; maxPrs?: number } = {},
 ): Promise<string> {
-  const scopedPrs = await collectScopedPullRequests(config, interval);
+  const scopedPrs = limitPullRequests(
+    await collectScopedPullRequests(config, interval, { maxPrs: options.maxPrs }),
+    options.maxPrs,
+  );
 
   if (options.collectOnly) {
     return writeRunArtifacts(config, { interval, scopedPrs });
@@ -46,6 +49,17 @@ export async function runPrReportAgent(
 
   const report = await aggregateReport(cards, interval, config, analyzerFailures);
   return writeRunArtifacts(config, { interval, scopedPrs, cards, analyzerFailures, report });
+}
+
+function limitPullRequests(
+  scopedPrs: PullRequestRecord[],
+  maxPrs: number | undefined,
+): PullRequestRecord[] {
+  if (maxPrs === undefined || scopedPrs.length <= maxPrs) {
+    return scopedPrs;
+  }
+  console.warn(`Limiting scoped PRs to first ${maxPrs} of ${scopedPrs.length} for this run.`);
+  return scopedPrs.slice(0, maxPrs);
 }
 
 function repoPathForPr(config: AppConfig, pr: PullRequestRecord): string {
@@ -104,4 +118,4 @@ function buildPrAnalysisFailure(
   };
 }
 
-export const testExports = { buildPrAnalysisFailure, mapSettledWithConcurrency };
+export const testExports = { buildPrAnalysisFailure, limitPullRequests, mapSettledWithConcurrency };

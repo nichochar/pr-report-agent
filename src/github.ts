@@ -62,10 +62,14 @@ interface GhPrDetails {
 export async function collectScopedPullRequests(
   config: AppConfig,
   interval: ResolvedInterval,
+  options: { maxPrs?: number } = {},
 ): Promise<PullRequestRecord[]> {
   const all: PullRequestRecord[] = [];
 
   for (const repo of config.repos) {
+    if (hasReachedMaxPrs(all, options.maxPrs)) {
+      break;
+    }
     assertLocalRepo(repo.localPath);
     const rules = await loadCodeownersRules(repo);
     console.error(`Scanning ${repo.slug} for merged PRs in ${interval.label}`);
@@ -91,12 +95,20 @@ export async function collectScopedPullRequests(
       const diff = await loadPullRequestDiff(repo.slug, summary.number);
       scopedCount += 1;
       all.push(normalizePullRequest(repo, summary, details, files, matchedFiles, diff));
+      if (hasReachedMaxPrs(all, options.maxPrs)) {
+        console.error(`Reached --max-prs ${options.maxPrs}; stopping collection early.`);
+        break;
+      }
     }
 
     console.error(`Scoped ${scopedCount} of ${summaries.length} merged PRs from ${repo.slug}`);
   }
 
   return all.sort((a, b) => a.mergedAt.localeCompare(b.mergedAt));
+}
+
+function hasReachedMaxPrs(scopedPrs: PullRequestRecord[], maxPrs: number | undefined): boolean {
+  return maxPrs !== undefined && scopedPrs.length >= maxPrs;
 }
 
 export async function listMergedPullRequests(

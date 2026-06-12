@@ -5,7 +5,6 @@
 - Add Notion `ntn` product-context ingestion.
 - Add per-PR analyzer progress logging.
 - Add a `--use-existing-run <run-dir>` mode so full report generation can reuse collected PRs without hitting GitHub again.
-- Add a `--limit` or `--pr` smoke-test option for cheaper end-to-end model tests.
 - Add run metadata with versions: `gh --version`, `ntn --version`, `bun --version`, git SHAs for local clones, model names.
 - Add report quality checks that verify `cards.json` length matches scoped PR count and every report PR link exists in cards.
 

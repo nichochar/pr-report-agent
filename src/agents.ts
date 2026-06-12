@@ -2,6 +2,7 @@ import { Agent, Runner, createCustomSpan, tool, withTrace, type Trace } from "@o
 import { z } from "zod";
 import { createAnalyzerChaosGuardrails } from "./analyzer-chaos.js";
 import { readFileAtRevision } from "./local-repo.js";
+import type { WeaveAgentRun } from "./observability.js";
 import { createToolChaosController } from "./tool-chaos.js";
 import {
   PrCardSchema,
@@ -24,6 +25,7 @@ interface AnalyzeOptions {
   repoLocalPath: string;
   config: AppConfig;
   traceContext?: ReportTraceContext;
+  weaveAgentRun?: WeaveAgentRun;
 }
 
 export async function analyzePullRequest(
@@ -49,6 +51,7 @@ export async function analyzePullRequest(
     traceIncludeSensitiveData: includeSensitiveTraceData(),
     outputGuardrails: createAnalyzerChaosGuardrails(pr),
   });
+  const weaveSubagent = options.weaveAgentRun?.startAnalyzerSubagent();
   return withTrace(
     workflowName,
     async (trace) => {
@@ -56,8 +59,11 @@ export async function analyzePullRequest(
         const result = await runner.run(agent, buildAnalyzerPrompt(pr, options.config), {
           maxTurns: options.config.agents.prAnalyzerMaxTurns,
         });
-        return PrCardSchema.parse(result.finalOutput);
+        const card = PrCardSchema.parse(result.finalOutput);
+        weaveSubagent?.end();
+        return card;
       } catch (error) {
+        weaveSubagent?.end(error);
         recordAnalyzerFailureSpan(pr, error, trace);
         await trace.end();
         throw error;
@@ -114,16 +120,18 @@ function createAnalyzerTools(pr: PullRequestRecord, options: AnalyzeOptions) {
         chars: z.number().int().min(1000).max(options.config.diff.chunkChars).optional(),
       }),
       async execute({ offset, chars }) {
-        toolChaos.maybeFail("read_diff_chunk");
-        const size = chars ?? options.config.diff.chunkChars;
-        const text = pr.diff.slice(offset, offset + size);
-        const nextOffset = offset + text.length;
-        return JSON.stringify({
-          offset,
-          nextOffset,
-          hasMore: nextOffset < pr.diff.length,
-          totalChars: pr.diff.length,
-          text,
+        return executeAnalyzerTool(pr, options, "read_diff_chunk", { offset, chars }, async () => {
+          toolChaos.maybeFail("read_diff_chunk");
+          const size = chars ?? options.config.diff.chunkChars;
+          const text = pr.diff.slice(offset, offset + size);
+          const nextOffset = offset + text.length;
+          return JSON.stringify({
+            offset,
+            nextOffset,
+            hasMore: nextOffset < pr.diff.length,
+            totalChars: pr.diff.length,
+            text,
+          });
         });
       },
     }),
@@ -135,18 +143,20 @@ function createAnalyzerTools(pr: PullRequestRecord, options: AnalyzeOptions) {
         contextChars: z.number().int().min(80).max(2000).default(500),
       }),
       async execute({ query, contextChars }) {
-        toolChaos.maybeFail("search_diff");
-        const lowerDiff = pr.diff.toLowerCase();
-        const lowerQuery = query.toLowerCase();
-        const matches: Array<{ offset: number; snippet: string }> = [];
-        let offset = lowerDiff.indexOf(lowerQuery);
-        while (offset !== -1 && matches.length < 20) {
-          const start = Math.max(0, offset - contextChars);
-          const end = Math.min(pr.diff.length, offset + query.length + contextChars);
-          matches.push({ offset, snippet: pr.diff.slice(start, end) });
-          offset = lowerDiff.indexOf(lowerQuery, offset + lowerQuery.length);
-        }
-        return JSON.stringify({ query, matches });
+        return executeAnalyzerTool(pr, options, "search_diff", { query, contextChars }, async () => {
+          toolChaos.maybeFail("search_diff");
+          const lowerDiff = pr.diff.toLowerCase();
+          const lowerQuery = query.toLowerCase();
+          const matches: Array<{ offset: number; snippet: string }> = [];
+          let offset = lowerDiff.indexOf(lowerQuery);
+          while (offset !== -1 && matches.length < 20) {
+            const start = Math.max(0, offset - contextChars);
+            const end = Math.min(pr.diff.length, offset + query.length + contextChars);
+            matches.push({ offset, snippet: pr.diff.slice(start, end) });
+            offset = lowerDiff.indexOf(lowerQuery, offset + lowerQuery.length);
+          }
+          return JSON.stringify({ query, matches });
+        });
       },
     }),
     tool({
@@ -158,22 +168,30 @@ function createAnalyzerTools(pr: PullRequestRecord, options: AnalyzeOptions) {
         maxChars: z.number().int().min(1000).max(options.config.diff.maxFileReadChars).optional(),
       }),
       async execute({ path, maxChars }) {
-        toolChaos.maybeFail("read_file_at_pr_revision");
-        const revision = pr.headRefOid ?? pr.mergeCommitOid;
-        if (!revision) {
-          return JSON.stringify({ error: "No head or merge revision is available for this PR." });
-        }
-        try {
-          const content = await readFileAtRevision(
-            options.repoLocalPath,
-            revision,
-            path,
-            maxChars ?? options.config.diff.maxFileReadChars,
-          );
-          return JSON.stringify({ path, revision, content });
-        } catch (error) {
-          return JSON.stringify({ path, revision, error: (error as Error).message });
-        }
+        return executeAnalyzerTool(
+          pr,
+          options,
+          "read_file_at_pr_revision",
+          { path, maxChars },
+          async () => {
+            toolChaos.maybeFail("read_file_at_pr_revision");
+            const revision = pr.headRefOid ?? pr.mergeCommitOid;
+            if (!revision) {
+              return JSON.stringify({ error: "No head or merge revision is available for this PR." });
+            }
+            try {
+              const content = await readFileAtRevision(
+                options.repoLocalPath,
+                revision,
+                path,
+                maxChars ?? options.config.diff.maxFileReadChars,
+              );
+              return JSON.stringify({ path, revision, content });
+            } catch (error) {
+              return JSON.stringify({ path, revision, error: (error as Error).message });
+            }
+          },
+        );
       },
     }),
     tool({
@@ -181,12 +199,33 @@ function createAnalyzerTools(pr: PullRequestRecord, options: AnalyzeOptions) {
       description: "Return normalized PR metadata, changed files, ownership matches, comments, and reviews.",
       parameters: z.object({}),
       async execute() {
-        toolChaos.maybeFail("list_pr_metadata");
-        const { diff, ...withoutDiff } = pr;
-        return JSON.stringify({ ...withoutDiff, diffChars: diff.length });
+        return executeAnalyzerTool(pr, options, "list_pr_metadata", {}, async () => {
+          toolChaos.maybeFail("list_pr_metadata");
+          const { diff, ...withoutDiff } = pr;
+          return JSON.stringify({ ...withoutDiff, diffChars: diff.length });
+        });
       },
     }),
   ];
+}
+
+async function executeAnalyzerTool<T>(
+  pr: PullRequestRecord,
+  options: AnalyzeOptions,
+  name: string,
+  args: unknown,
+  execute: () => Promise<T> | T,
+): Promise<T> {
+  const weaveTool = options.weaveAgentRun?.startAnalyzerTool(pr, name, args);
+  try {
+    const result = await execute();
+    weaveTool?.setResult(result);
+    weaveTool?.end();
+    return result;
+  } catch (error) {
+    weaveTool?.end(error);
+    throw error;
+  }
 }
 
 function recordAnalyzerFailureSpan(pr: PullRequestRecord, error: unknown, trace: Trace): void {

@@ -7,6 +7,7 @@ import type {
 } from "./types.js";
 import { aggregateReport, analyzePullRequest } from "./agents.js";
 import { collectScopedPullRequests } from "./github.js";
+import { startReportAgentRun } from "./observability.js";
 import { writeRunArtifacts } from "./artifacts.js";
 import { buildReportTraceContext } from "./trace-context.js";
 
@@ -26,29 +27,43 @@ export async function runPrReportAgent(
     throw new Error("OPENAI_API_KEY is required unless --collect-only is used.");
   }
 
-  const analysisResults = await mapSettledWithConcurrency(scopedPrs, config.agents.prAnalyzerConcurrency, (pr) =>
-    analyzePullRequest(pr, {
-      repoLocalPath: repoPathForPr(config, pr),
-      config,
-      traceContext,
-    }),
-  );
-  const cards: PrCard[] = [];
-  const analyzerFailures: PrAnalysisFailure[] = [];
-  for (const result of analysisResults) {
-    if (result.status === "fulfilled") {
-      cards.push(result.value);
-    } else {
-      const failure = buildPrAnalysisFailure(result.item, result.reason);
-      analyzerFailures.push(failure);
-      console.warn(
-        `Analyzer failed for ${failure.repo}#${failure.number}; continuing report without it: ${failure.errorMessage}`,
-      );
+  const weaveAgentRun = startReportAgentRun(config, interval, traceContext, scopedPrs.length);
+  try {
+    const analysisResults = await mapSettledWithConcurrency(
+      scopedPrs,
+      config.agents.prAnalyzerConcurrency,
+      (pr) =>
+        analyzePullRequest(pr, {
+          repoLocalPath: repoPathForPr(config, pr),
+          config,
+          traceContext,
+          weaveAgentRun,
+        }),
+    );
+    const cards: PrCard[] = [];
+    const analyzerFailures: PrAnalysisFailure[] = [];
+    for (const result of analysisResults) {
+      if (result.status === "fulfilled") {
+        cards.push(result.value);
+      } else {
+        const failure = buildPrAnalysisFailure(result.item, result.reason);
+        analyzerFailures.push(failure);
+        weaveAgentRun?.recordAnalyzerFailure(failure);
+        console.warn(
+          `Analyzer failed for ${failure.repo}#${failure.number}; continuing report without it: ${failure.errorMessage}`,
+        );
+      }
     }
-  }
 
-  const report = await aggregateReport(cards, interval, config, traceContext, analyzerFailures);
-  return writeRunArtifacts(config, { interval, scopedPrs, cards, analyzerFailures, report });
+    const report = await aggregateReport(cards, interval, config, traceContext, analyzerFailures);
+    weaveAgentRun?.recordReportResult(cards, analyzerFailures);
+    return await writeRunArtifacts(config, { interval, scopedPrs, cards, analyzerFailures, report });
+  } catch (error) {
+    weaveAgentRun?.end(error);
+    throw error;
+  } finally {
+    weaveAgentRun?.end();
+  }
 }
 
 function repoPathForPr(config: AppConfig, pr: PullRequestRecord): string {

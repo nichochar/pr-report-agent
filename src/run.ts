@@ -8,12 +8,14 @@ import type {
 import { aggregateReport, analyzePullRequest } from "./agents.js";
 import { collectScopedPullRequests } from "./github.js";
 import { writeRunArtifacts } from "./artifacts.js";
+import { buildReportTraceContext } from "./trace-context.js";
 
 export async function runPrReportAgent(
   config: AppConfig,
   interval: ResolvedInterval,
   options: { collectOnly?: boolean; maxPrs?: number } = {},
 ): Promise<string> {
+  const traceContext = buildReportTraceContext(config, interval, "langsmith");
   const scopedPrs = limitPullRequests(
     await collectScopedPullRequests(config, interval, { maxPrs: options.maxPrs }),
     options.maxPrs,
@@ -31,6 +33,7 @@ export async function runPrReportAgent(
     analyzePullRequest(pr, {
       repoLocalPath: repoPathForPr(config, pr),
       config,
+      traceContext,
     }),
   );
   const cards: PrCard[] = [];
@@ -47,7 +50,7 @@ export async function runPrReportAgent(
     }
   }
 
-  const report = await aggregateReport(cards, interval, config, analyzerFailures);
+  const report = await aggregateReport(cards, interval, config, traceContext, analyzerFailures);
   return writeRunArtifacts(config, { interval, scopedPrs, cards, analyzerFailures, report });
 }
 

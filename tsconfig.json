@@ -4,11 +4,13 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["node", "bun"],
+    "types": ["node", "bun", "react", "react-dom"],
     "outDir": "dist"
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests", "scripts", "web/src", "web/vite.config.ts"]
 }

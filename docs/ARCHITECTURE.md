@@ -79,6 +79,23 @@ runs/<interval-label>/
 
 `scoped-prs.json` avoids embedding diffs and records diff size. `scoped-prs-with-diffs.json` stores the full collected input.
 
+## Local UI
+
+The local UI is a lean file-backed viewer over `runs/`:
+
+```text
+Bun localhost API
+  -> Scan configured outputDir
+  -> Normalize legacy report titles for display
+  -> Strip full diffs from browser responses
+  -> Derive report/card areas from sections, themes, and tags
+  -> Serve Vite React app data
+```
+
+The UI can browse the run archive, render report Markdown, expand PR cards inline, filter cards by repo/risk/derived area/text, and launch one full report run at a time by spawning the existing CLI. It does not add a DB, scheduler, chat layer, SSE, Notion publishing, or Slack publishing.
+
+The configured report set has a `name` such as `Weave`; that is configuration metadata, not part of the generic report title. New reports should title themselves `PR Report`.
+
 ## Product Context Direction
 
 Product context should become an input stage before PR analysis:

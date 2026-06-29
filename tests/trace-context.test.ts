@@ -9,6 +9,7 @@ import type { AppConfig, PrCard, PullRequestRecord } from "../src/types.js";
 describe("trace context", () => {
   test("builds Weave-friendly report and PR metadata", () => {
     const config = {
+      name: "Test",
       repos: [{ slug: "wandb/weave" }, { slug: "wandb/core" }],
     } as AppConfig;
     const context = buildReportTraceContext(

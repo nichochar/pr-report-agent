@@ -21,6 +21,7 @@ describe("Weave observability helpers", () => {
 
   test("does not start a Weave Agents run before observability is initialized", () => {
     const config = {
+      name: "Test",
       repos: [{ slug: "wandb/weave" }],
       models: {
         orchestrator: "gpt-5.5",

@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-06-11.
+Last updated: 2026-06-23.
 
 ## What This Project Is
 
@@ -23,6 +23,7 @@ It was originally scaffolded inside `/Users/ncharriere/oss/workshop/examples/pr-
 - Let the aggregator infer themes and tags from evidence.
 - Use the best orchestrator model in config (`gpt-5.5`) and a cheaper analyzer model (`gpt-5.4-mini`) by default.
 - Prefer CLI tool boundaries for external context systems, especially Notion `ntn`, over custom API code when practical.
+- For the local UI, keep v1 local-first, file-backed, and simple. Use the configured repo set name such as `Weave` as configuration metadata, while the report title should be generic: `PR Report`.
 
 ## Current Implementation Summary
 
@@ -34,8 +35,13 @@ It was originally scaffolded inside `/Users/ncharriere/oss/workshop/examples/pr-
 - `src/agents.ts`: OpenAI Agents SDK PR analyzer and orchestrator.
 - `src/artifacts.ts`: JSON and Markdown artifact writing.
 - `src/types.ts`: config, PR, card, report schemas.
+- `src/ui/*`: Bun localhost API, run artifact indexer, and one-active-run launcher for the local UI.
+- `web/src/*`: Vite React local UI for report archive, Markdown rendering, inline PR card drilldown, derived-area filters, and Launch Run.
 - `config/coreweave-weave.config.json`: repo list, owner filters, models, output paths, limits.
 - CLI supports `--max-prs N` to stop collection after N scoped PRs for cheaper full-path smoke tests.
+- UI scripts:
+  - `bun run dev:ui`
+  - `bun run build:ui`
 
 ## Verified Behavior
 
@@ -45,6 +51,7 @@ The new standalone repo has been verified with:
 bun install
 bun run typecheck
 bun test
+bun run build:ui
 ```
 
 Test coverage currently includes:
@@ -55,17 +62,21 @@ Test coverage currently includes:
 - Pacific interval calculation.
 - Schedule trigger mapping.
 - Artifact writing.
+- UI run indexing, API responses, and launcher behavior.
 
 Real data verification:
 
 - `gh auth status` succeeded earlier as user `nichochar` with `repo` and `read:org` scopes.
 - A full real-data run for the 2026-06-09 Pacific day succeeded.
 - The run generated 30 analyzer cards and a final Markdown report.
+- The local UI was browser-verified against existing runs: generic `PR Report` display, active config/repo display, inline PR card expansion, clickable card filter chips, and mobile layout.
 
 ## Current Limitations
 
 - The collection phase is slow for `wandb/core` because changed-file metadata is fetched per candidate PR before owner filtering can discard unrelated PRs.
 - Analyzer progress is not surfaced per PR yet.
+- The UI launches full reports but does not yet schedule them.
+- The UI has no DB, saved chat, annotations, SSE log streaming, or multi-config picker.
 - Product-context ingestion is planned but not implemented.
 - `ntn` was not installed locally when last checked.
 - There is no scheduler yet, only schedule trigger typing.

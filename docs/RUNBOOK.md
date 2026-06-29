@@ -27,7 +27,26 @@ test -n "$OPENAI_API_KEY"
 ```bash
 bun run typecheck
 bun test
+bun run build:ui
 ```
+
+## Local UI
+
+Start the local report browser:
+
+```bash
+bun run dev:ui
+```
+
+Open:
+
+```text
+http://127.0.0.1:5173/
+```
+
+The UI uses the default config at `config/coreweave-weave.config.json` unless `PR_REPORT_UI_CONFIG` is set. The API binds to `127.0.0.1:8787` unless `PR_REPORT_UI_API_PORT` is set, and Vite binds to `127.0.0.1:5173` unless `PR_REPORT_UI_WEB_PORT` is set.
+
+The Launch Run panel starts the existing CLI for the active config, shows the configured repo set, and polls job status/logs. Only one UI-launched run can be active at a time.
 
 ## Collect Without Model Calls
 
@@ -127,6 +146,7 @@ That is expected when its CODEOWNERS file does not assign changed files to `@wan
 1. Edit code.
 2. Run `bun run typecheck`.
 3. Run `bun test`.
-4. Run a narrow collect-only interval.
-5. Run a capped full interval with `--max-prs 3` if agent changes were made.
-6. Run a full day only after the narrow interval succeeds.
+4. Run `bun run build:ui` if UI or shared UI types changed.
+5. Run a narrow collect-only interval.
+6. Run a capped full interval with `--max-prs 3` if agent changes were made.
+7. Run a full day only after the narrow interval succeeds.

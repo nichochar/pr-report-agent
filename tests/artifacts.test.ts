@@ -9,6 +9,7 @@ describe("artifact writer", () => {
   test("writes scoped PRs, cards, report JSON, and Markdown", async () => {
     const outputDir = await mkdtemp(join(tmpdir(), "pr-report-agent-"));
     const config = {
+      name: "Test",
       outputDir,
     } as AppConfig;
     const report: Report = {

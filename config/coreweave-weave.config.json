@@ -1,4 +1,5 @@
 {
+  "name": "Weave",
   "companyContext": "CoreWeave owns Weights & Biases. This report monitors Weave-related product and platform work across configured W&B repositories for engineering and product leads.",
   "defaultTimezone": "America/Los_Angeles",
   "defaultInterval": "previous-day",

@@ -3,14 +3,17 @@
 ## High Value
 
 - Add Notion `ntn` product-context ingestion.
+- Add local report chat over generated cards first, with optional `gh` fallback for source-of-truth lookups.
 - Add per-PR analyzer progress logging.
 - Add a `--use-existing-run <run-dir>` mode so full report generation can reuse collected PRs without hitting GitHub again.
 - Add run metadata with versions: `gh --version`, `ntn --version`, `bun --version`, git SHAs for local clones, model names.
 - Add report quality checks that verify `cards.json` length matches scoped PR count and every report PR link exists in cards.
+- Consider SQLite only after there are concrete needs for persistent chat, annotations, embeddings, pruning, or faster long-range search.
 
 ## Scheduling
 
 - Add a small wrapper for manual, daily, and weekly triggers.
+- Add UI support for showing scheduled-run status once scheduling exists.
 - Consider launchd first for local scheduling on macOS.
 - Later, consider hosted sandbox execution once local behavior is stable.
 
@@ -43,3 +46,4 @@
 - Add `--help` output.
 - Add command examples for previous day and previous week.
 - Add `.env.example` guidance for OpenAI and Notion environment variables.
+- Add a production `serve:ui` path if the local UI needs to run without Vite.

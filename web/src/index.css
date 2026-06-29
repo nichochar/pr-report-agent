@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  color: #0f172a;
+  background: #f8fafc;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+.report-markdown {
+  color: #1e293b;
+  line-height: 1.65;
+}
+
+.report-markdown h1 {
+  margin: 0 0 1rem;
+  color: #0f172a;
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.report-markdown h2 {
+  margin: 2rem 0 0.75rem;
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.report-markdown h3 {
+  margin: 1.5rem 0 0.5rem;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.report-markdown p {
+  margin: 0.75rem 0;
+}
+
+.report-markdown ul,
+.report-markdown ol {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+}
+
+.report-markdown li {
+  margin: 0.35rem 0;
+}
+
+.report-markdown code {
+  border-radius: 0.25rem;
+  background: #e2e8f0;
+  padding: 0.1rem 0.25rem;
+  color: #0f172a;
+  font-size: 0.875em;
+}
+
+.report-markdown a {
+  color: #0369a1;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.report-markdown strong {
+  color: #0f172a;
+}

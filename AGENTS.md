@@ -19,6 +19,8 @@ Build and maintain a local PR-reporting agent for CoreWeave / Weights & Biases W
 - Package manager/runtime: Bun
 - Language: TypeScript
 - Agent SDK: `@openai/agents`
+- Local UI stack: Vite React TypeScript, Tailwind CSS v4, shadcn/ui-style checked-in components.
+- shadcn/ui reference version: `shadcn` CLI `4.11.0`. Components live under `web/src/components/ui`, use `class-variance-authority`, `tailwind-merge`, and `lucide-react`, and should follow the same checked-in component pattern rather than being generated into a separate design system.
 - Config: `config/coreweave-weave.config.json`
 - Generated run artifacts: `runs/` and ignored by git
 - Local source repos expected by config:

@@ -84,14 +84,14 @@ export async function aggregateReport(
   analyzerFailures: PrAnalysisFailure[] = [],
 ): Promise<Report> {
   const agent = new Agent({
-    name: "Weave PR report orchestrator",
+    name: "PR report orchestrator",
     instructions: orchestratorInstructions,
     model: config.models.orchestrator,
     outputType: ReportSchema,
   });
   const runner = new Runner({
     model: config.models.orchestrator,
-    workflowName: "Aggregate Weave PR report",
+    workflowName: "Aggregate PR report",
     groupId: traceContext?.groupId,
     traceMetadata: traceContext
       ? buildOrchestratorTraceMetadata(cards, traceContext, analyzerFailures)
@@ -301,12 +301,14 @@ function buildOrchestratorPrompt(
 ): string {
   return JSON.stringify(
     {
-      task: "Aggregate PR analysis cards into a digestible CoreWeave/W&B Weave report.",
+      task: "Aggregate PR analysis cards into a digestible report for the configured repository set.",
       audience: "Engineering and product leads.",
+      reportTitle: "PR Report",
       freedom:
         "Choose the grouping that makes the interval easiest to understand: theme, project, importance, repo, risk, or another structure if it is clearer.",
       requirements: [
         "Produce JSON fields plus a polished Markdown report.",
+        'Use exactly "PR Report" for the report title and the Markdown H1.',
         "Do not list every detail mechanically; synthesize what changed and why it matters.",
         "Call out notable risks, launches, regressions prevented, product implications, and follow-ups.",
         "Preserve links to important PRs.",
@@ -314,6 +316,13 @@ function buildOrchestratorPrompt(
         "If failedAnalyzerPrs is non-empty, do not invent analysis for those PRs. Mention that they failed separately from analyzed PRs.",
       ],
       companyContext: config.companyContext,
+      config: {
+        name: config.name,
+        repos: config.repos.map((repo) => ({
+          slug: repo.slug,
+          includeOwners: repo.includeOwners,
+        })),
+      },
       interval,
       cards,
       failedAnalyzerPrs: analyzerFailures.map((failure) => ({

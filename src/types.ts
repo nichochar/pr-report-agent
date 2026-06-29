@@ -13,6 +13,7 @@ export const RepoConfigSchema = z.object({
 export type RepoConfig = z.infer<typeof RepoConfigSchema>;
 
 export const AppConfigSchema = z.object({
+  name: z.string().default("Default"),
   companyContext: z.string(),
   defaultTimezone: z.string().default("America/Los_Angeles"),
   defaultInterval: IntervalPresetSchema.default("previous-day"),
